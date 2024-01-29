@@ -1,12 +1,17 @@
 import re
 
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def fronting_test(ip: str, timeout: float, fronting_domain=None) -> bool:
     if not fronting_domain:
+        logger.debug(f"Testing {ip} with direct fronting")
         return fronting_test_direct(ip, timeout)
     else:
+        logger.debug(f"Testing {ip} with cname fronting")
         return fronting_test_cname(ip, timeout, fronting_domain)
 
 

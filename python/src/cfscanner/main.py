@@ -80,23 +80,38 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
         )
 
     # check if blocked
-    if not args.no_vpn and args.fronting_domain:
-        with console.status(
-            f"[green]Checking if fronting domain is blocked[/green]"
-        ):
-            if is_blocked(args.fronting_domain):
-                console.log("Trying direct fronting test")
+    if not args.no_vpn:
+        if args.fronting_domain:
+            with console.status(
+                "[green]Checking if fronting domain is blocked[/green]"
+            ):
+                if is_blocked(args.fronting_domain):
+                    console.log("Trying direct fronting test")
+                    if is_blocked("speed.cloudflare.com"):
+                        console.log(
+                            "[red1]Fronting domain and direct fronting test "
+                            "are blocked[/red1]"
+                        )
+                        console.log(
+                            "Consider using another cname or pass "
+                            "--no-fronting to skip fronting test"
+                        )
+                        console.log("Exiting...")
+                        exit(1)
+                    else:
+                        args.fronting_domain = None
+        else:
+            with console.status(
+                "[green]Checking if speed.cloudflare.com is blocked[/green]"
+            ):
                 if is_blocked("speed.cloudflare.com"):
+                    console.log("[red1]speed.cloudflare.com is blocked[/red1]")
                     console.log(
-                        "[red1]Fronting domain and direct fronting test are blocked[/red1]"
-                    )
-                    console.log(
-                        "Consider using another cname or pass --no-fronting to skip fronting test"
+                        "Consider using a cname or pass --no-fronting to skip "
+                        "fronting test"
                     )
                     console.log("Exiting...")
                     exit(1)
-                else:
-                    args.fronting_domain = None
 
     with console.status(
         f'[green]Creating results directory "{RESULTDIR}"[/green]'
