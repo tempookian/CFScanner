@@ -8,20 +8,18 @@ from typing import Generator, Tuple, Union
 from urllib.parse import urlparse
 
 import requests
-from rich.console import Console
 
 from ..utils.exceptions import *
 from ..utils.os import get_n_lines
 from ..utils.random import reservoir_sampling
 
 PATH = os.getcwd()
-console = Console()
 
 
 def cidr_to_ip_gen(
     cidr: str,
     sample_size: Union[int, float, None] = None,
-    sampling_timeout: float = None
+    sampling_timeout: float = None,
 ) -> list:
     """converts a subnet to a list of ips
 
@@ -29,7 +27,7 @@ def cidr_to_ip_gen(
         cidr (str): the cidr in the form of "ip/subnet"
         sample_size (Union[int, float, None], optional): The number of ips to sample from the subnet or
         the ratio of ips to sample from the subnet. If None, all ips will be returned Defaults to None.
-        sampling_timeout (float, optional): The timeout for the sampling process. Defaults to None. If exceeded, 
+        sampling_timeout (float, optional): The timeout for the sampling process. Defaults to None. If exceeded,
         the sampling process will be terminated and the current sampled ips will be returned.
 
     Returns:
@@ -37,40 +35,39 @@ def cidr_to_ip_gen(
     """
     n_ips = get_num_ips_in_cidr(cidr)
     ip_generator = map(str, ipaddress.ip_network(cidr, strict=False))
-    
+
     if sample_size is None or sample_size >= n_ips:
         return ip_generator
     elif 1 <= sample_size < n_ips:
         return reservoir_sampling(
-            ip_generator, 
-            round(sample_size),
-            sampling_timeout=sampling_timeout
+            ip_generator, round(sample_size), sampling_timeout=sampling_timeout
         )
     elif 0 < sample_size < 1:
         return reservoir_sampling(
-            ip_generator, 
+            ip_generator,
             math.ceil(n_ips * sample_size),
-            sampling_timeout=sampling_timeout
+            sampling_timeout=sampling_timeout,
         )
     else:
         raise ValueError(f"Invalid sample size: {sample_size}")
 
 
 def get_num_ips_in_cidr(
-    cidr: str,
-    sample_size: Union[int, float, None] = None
+    cidr: str, sample_size: Union[int, float, None] = None
 ):
     """
     Returns the number of IP addresses in a CIDR block.
     """
-    parts = cidr.split('/')
+    parts = cidr.split("/")
 
     try:
         subnet_mask = int(parts[1])
     except IndexError as e:
         subnet_mask = 128 if ":" in cidr else 32
 
-    n_ips = 2**(128 - subnet_mask) if ":" in cidr else 2**(32 - subnet_mask)
+    n_ips = (
+        2 ** (128 - subnet_mask) if ":" in cidr else 2 ** (32 - subnet_mask)
+    )
 
     if sample_size is None:
         return n_ips
@@ -82,10 +79,7 @@ def get_num_ips_in_cidr(
         raise ValueError(f"Invalid sample size: {sample_size}")
 
 
-def read_cidrs_from_url(
-    url: str,
-    timeout: float = 10
-) -> list:
+def read_cidrs_from_url(url: str, timeout: float = 10) -> list:
     """reads cidrs from a url
 
     Args:
@@ -98,23 +92,21 @@ def read_cidrs_from_url(
         r = requests.get(url, timeout=timeout)
         if r.status_code != 200:
             raise SubnetsReadError(
-                f"Could not read cidrs from url - status code: {r.status_code}", url)
+                f"Could not read cidrs from url - status code: {r.status_code}",
+                url,
+            )
         cidr_regex = r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:\/[\d]+)?"
         cidrs = re.findall(cidr_regex, r.text)
         if len(cidrs) == 0:
-            raise SubnetsReadError(
-                f"Could not find any cidr in url {url}"
-            )
+            raise SubnetsReadError(f"Could not find any cidr in url {url}")
     except Exception as e:
-        raise SubnetsReadError(f"Could not read cidrs from url \"{url}\"")
+        raise SubnetsReadError(f'Could not read cidrs from url "{url}"')
 
     return cidrs
 
 
 def read_cidrs_from_file(
-    filepath: str,
-    shuffle: bool = False,
-    n_lines: int = None
+    filepath: str, shuffle: bool = False, n_lines: int = None
 ):
     """reads cidrs from a file
 
@@ -144,9 +136,7 @@ def read_cidrs_from_file(
 
 
 def read_cidrs(
-    url_or_path: str,
-    shuffle: bool = False,
-    timeout: float = 10
+    url_or_path: str, shuffle: bool = False, timeout: float = 10
 ) -> Tuple[Generator, int]:
     """reads cidrs from a url or file
 
@@ -161,9 +151,7 @@ def read_cidrs(
     if os.path.isfile(url_or_path):
         n_cidrs = get_n_lines(url_or_path)
         cidrs = read_cidrs_from_file(
-            url_or_path,
-            shuffle=shuffle, 
-            n_lines=n_cidrs
+            url_or_path, shuffle=shuffle, n_lines=n_cidrs
         )
     elif urlparse(url_or_path).scheme:
         cidrs_list = read_cidrs_from_url(url_or_path, timeout)
@@ -175,10 +163,10 @@ def read_cidrs(
         cidrs = read_cidrs_from_file(
             os.path.join(subnets_path, "cidrs.txt"),
             shuffle=shuffle,
-            n_lines=len(cidrs_list)
+            n_lines=len(cidrs_list),
         )
     else:
         raise SubnetsReadError(
-            f"\"{url_or_path}\" is neither a valid url nor a file path."
+            f'"{url_or_path}" is neither a valid url nor a file path.'
         )
     return cidrs, n_cidrs

@@ -1,16 +1,11 @@
 import requests
 from rich.console import Console
 from ..utils.exceptions import *
-
-console = Console()
+from ..report.logging_setup import console
 
 
 def download_file(
-    url: str,
-    save_path: str,
-    timeout: float = 10,
-    chunk_size: int = 1024
-
+    url: str, save_path: str, timeout: float = 10, chunk_size: int = 1024
 ):
     """Download a file from a url to a path.
 

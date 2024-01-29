@@ -2,17 +2,18 @@ import os
 import zipfile
 
 import requests
-from rich.console import Console
 
+from ..report.logging_setup import console
 from ..utils.decorators import timeout_fun
 from ..utils.exceptions import *
 from ..utils.requests import download_file
+import pathlib
+
 
 from . import LATEST_SUPPORTED_VERSION, SUPPORTED
 
-console = Console()
 
-PATH = os.path.dirname(os.path.abspath(__file__))
+PATH = pathlib.Path(os.getcwd())
 
 
 def download_binary(
@@ -20,16 +21,16 @@ def download_binary(
     bin_dir: str,
     version: str = None,
     timeout: float = 300,
-    max_latency: float = 20
+    max_latency: float = 20,
 ) -> None:
     """Download a binary from a url to a path.
 
     Args:
-        system_info (tuple): (system, arch, abi)
-        bin_dir (str, optional): path to the binary to be downloaded to
-        version (str): the version of xray to download
-        timeout (float, optional): total allowed time (including RTT) for the download in seconds. Defaults to 10.
-        max_latency (float, optional): max allowed RTT for the download in seconds. Defaults to 1.
+        system_info (tuple): (system, arch, abi) bin_dir (str, optional): path
+        to the binary to be downloaded to version (str): the version of xray to
+        download timeout (float, optional): total allowed time (including RTT)
+        for the download in seconds. Defaults to 10. max_latency (float,
+        optional): max allowed RTT for the download in seconds. Defaults to 1.
     """
     if system_info not in SUPPORTED:
         raise OSError(f"System {system_info} not supported")
@@ -38,9 +39,9 @@ def download_binary(
         version = LATEST_SUPPORTED_VERSION
     platform_str = "-".join(system_info)
     zip_url = f"https://github.com/XTLS/Xray-core/releases/download/v{version}/Xray-{platform_str}.zip"
-    zipdir = os.path.join(PATH, ".tmp")
-    os.makedirs(zipdir, exist_ok=True)
-    zip_path = os.path.join(zipdir, f"{platform_str}.zip")
+    zipdir = PATH / ".tmp"
+    zipdir.mkdir(exist_ok=True)
+    zip_path = zipdir / f"{platform_str}.zip"
     bin_fname = f"xray-{'-'.join(system_info)}"
     bin_path = os.path.join(bin_dir, bin_fname)
     # if windows, add .exe
@@ -48,7 +49,7 @@ def download_binary(
         bin_path += ".exe"
 
     if not os.path.exists(bin_path):
-        with console.status("[bold green]Downloading xray[/bold green]") as console_status:
+        with console.status("[bold green]Downloading xray[/bold green]"):
             try:
                 timeout_fun(timeout=timeout)(download_file)(
                     zip_url, zip_path, timeout=max_latency
@@ -65,15 +66,20 @@ def download_binary(
                 return bin_path
             except FileDownloadError as e:
                 raise BinaryDownloadError(
-                    f"Failed to download the release zip file from xtls xray-core github repo {system_info}")
+                    f"Failed to download the release zip file from xtls xray-core github repo {system_info}"
+                )
             except KeyError as e:
                 raise BinaryDownloadError(
-                    f"Failed to get binary from zip file {zip_url}")
+                    f"Failed to get binary from zip file {zip_url}"
+                )
             except Exception as e:
                 raise BinaryDownloadError(
-                    f"Unknown error - detected system: {system_info}")
+                    f"Unknown error - detected system: {system_info}"
+                )
     else:
-        console.log(f"[bright_blue]Binary file already exists {bin_path}[/bright_blue]")
+        console.log(
+            f"[bright_blue]Binary file already exists {bin_path}[/bright_blue]"
+        )
         return bin_path
 
 

@@ -8,25 +8,27 @@ import statistics
 from datetime import datetime
 from functools import partial
 
+import fancylogging
 import pkg_resources
-from rich.console import Console
 
 from .args.parser import parse_args
 from .args.testconfig import TestConfig
 from .report.print import TitledProgress
 from .speedtest.conduct import test_ip
-from .speedtest.tools import mean_jitter
+from .speedtest.tools import is_blocked, mean_jitter
 from .subnets import cidr_to_ip_gen, get_num_ips_in_cidr, read_cidrs
 from .utils.exceptions import *
 from .utils.os import create_dir
+from .report.logging_setup import (
+    console,
+    CONFIGDIR,
+    RESULTDIR,
+    START_DT_STR,
+    INTERIM_RESULTS_PATH,
+)
 
-console = Console()
 
-SCRIPTDIR = os.getcwd()
-CONFIGDIR = f"{SCRIPTDIR}/.xray-configs"
-RESULTDIR = f"{SCRIPTDIR}/result"
-START_DT_STR = datetime.now().strftime(r"%Y%m%d_%H%M%S")
-INTERIM_RESULTS_PATH = os.path.join(RESULTDIR, f"{START_DT_STR}_result.csv")
+logger = logging.getLogger("cfscanner")
 
 
 def _prescan_sigint_handler(sig, frame):
@@ -41,9 +43,6 @@ def _init_pool():
 
 
 def main():
-    logger = logging.getLogger(__name__)
-    console = Console()
-
     logo = """                                                                                                                                        
 ____ ____ ____ ____ ____ _  _ _  _ ____ ____ 
 |    |___ [__  |    |__| |\ | |\ | |___ |__/ 
@@ -58,18 +57,18 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
     except pkg_resources.DistributionNotFound:
         console.print(f"[bold green1]v0.0.0[bold green1]\n\n")
 
-    log_dir = os.path.join(SCRIPTDIR, "log")
-    os.makedirs(log_dir, exist_ok=True)
-    logging.basicConfig(filename=os.path.join(log_dir, f"{START_DT_STR}.log"))
-
     console.log(f"[green]Scan started - {START_DT_STR}[/green]")
 
-    original_sigint_handler = signal.signal(signal.SIGINT, _prescan_sigint_handler)
+    original_sigint_handler = signal.signal(
+        signal.SIGINT, _prescan_sigint_handler
+    )
 
     args = parse_args()
 
     if not args.no_vpn:
-        with console.status(f'[green]Creating config dir "{CONFIGDIR}"[/green]'):
+        with console.status(
+            f'[green]Creating config dir "{CONFIGDIR}"[/green]'
+        ):
             try:
                 create_dir(CONFIGDIR)
             except Exception as e:
@@ -80,14 +79,37 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
             f'[bright_blue]Config directory created "{CONFIGDIR}"[/bright_blue]'
         )
 
-    with console.status(f'[green]Creating results directory "{RESULTDIR}"[/green]'):
+    # check if blocked
+    if not args.no_vpn and args.fronting_domain:
+        with console.status(
+            f"[green]Checking if fronting domain is blocked[/green]"
+        ):
+            if is_blocked(args.fronting_domain):
+                console.log("Trying direct fronting test")
+                if is_blocked("speed.cloudflare.com"):
+                    console.log(
+                        "[red1]Fronting domain and direct fronting test are blocked[/red1]"
+                    )
+                    console.log(
+                        "Consider using another cname or pass --no-fronting to skip fronting test"
+                    )
+                    console.log("Exiting...")
+                    exit(1)
+                else:
+                    args.fronting_domain = None
+
+    with console.status(
+        f'[green]Creating results directory "{RESULTDIR}"[/green]'
+    ):
         try:
             create_dir(RESULTDIR)
         except Exception as e:
             console.log("[red1]Could not create results directory[/red1]")
             logger.exception("Could not create results directory")
             exit(1)
-    console.log(f'[bright_blue]Results directory created "{RESULTDIR}"[/bright_blue]')
+    console.log(
+        f'[bright_blue]Results directory created "{RESULTDIR}"[/bright_blue]'
+    )
 
     # create empty result file
     with console.status(
@@ -104,10 +126,16 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
                     "avg_download_jitter",
                     "avg_upload_jitter",
                 ]
-                titles += [f"download_speed_{i+1}" for i in range(args.n_tries)]
+                titles += [
+                    f"download_speed_{i+1}" for i in range(args.n_tries)
+                ]
                 titles += [f"upload_speed_{i+1}" for i in range(args.n_tries)]
-                titles += [f"download_latency_{i+1}" for i in range(args.n_tries)]
-                titles += [f"upload_latency_{i+1}" for i in range(args.n_tries)]
+                titles += [
+                    f"download_latency_{i+1}" for i in range(args.n_tries)
+                ]
+                titles += [
+                    f"upload_latency_{i+1}" for i in range(args.n_tries)
+                ]
                 empty_file.write(",".join(titles) + "\n")
         except Exception as e:
             console.log(
@@ -138,7 +166,9 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
     threadsCount = args.threads
 
     if args.subnets:
-        with console.status('[green]Reading subnets from "{args.subnets}"[/green]'):
+        with console.status(
+            '[green]Reading subnets from "{args.subnets}"[/green]'
+        ):
             try:
                 cidr_generator, n_cidrs = read_cidrs(
                     args.subnets,
@@ -173,7 +203,9 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
                 logger.exception(e)
                 exit(1)
             except Exception as e:
-                console.log(f"[red1]Unknown error in reading subnets: {e}[/red1]")
+                console.log(
+                    f"[red1]Unknown error in reading subnets: {e}[/red1]"
+                )
                 logger.exception(e)
                 exit(1)
 
@@ -189,8 +221,9 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
     cidr_scanned_ips = dict()
     cidr_prog_tasks = dict()
 
-    with TitledProgress(title=f"start: [green]{START_DT_STR}[/green]") as progress:
-        console = progress.console
+    with TitledProgress(
+        title=f"start: [green]{START_DT_STR}[/green]", console=console
+    ) as progress:
         all_subnets_task = progress.add_task(
             f"all subnets - {n_cidrs} subnets", total=n_cidrs
         )
@@ -199,7 +232,9 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
         ) as pool:
             signal.signal(signal.SIGINT, original_sigint_handler)
             iterator = pool.imap(
-                partial(test_ip, test_config=test_config, config_dir=CONFIGDIR),
+                partial(
+                    test_ip, test_config=test_config, config_dir=CONFIGDIR
+                ),
                 ip_generator(),
             )
             while True:
@@ -211,7 +246,8 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
                             res.cidr, sample_size=test_config.sample_size
                         )
                         cidr_prog_tasks[res.cidr] = progress.add_task(
-                            f"{res.cidr:17s} - {n_ips_cidr} ips", total=n_ips_cidr
+                            f"{res.cidr:17s} - {n_ips_cidr} ips",
+                            total=n_ips_cidr,
                         )
                     progress.update(cidr_prog_tasks[res.cidr], advance=1)
                     progress.scanned_ips += 1
