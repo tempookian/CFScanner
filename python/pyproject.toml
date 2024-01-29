@@ -21,6 +21,7 @@ dependencies = [
   "pysocks>=1.7.1",
   "rich>=13.3.3",
   "setuptools",
+  "fancylogging>=0.0.3",
 ]
 dynamic = ["version"]
 
