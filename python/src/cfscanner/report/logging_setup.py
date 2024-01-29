@@ -15,7 +15,7 @@ CWD = pathlib.Path(os.getcwd())
 console = Console()
 fancylogging.setup_fancy_logging(
     "cfscanner",
-    console_log_level=logging.DEBUG,
+    console_log_level=logging.INFO,
     file_log_level=logging.DEBUG,
     file_log_path=CWD / "log" / f"{START_DT_STR}.jsonl",
     console=console,

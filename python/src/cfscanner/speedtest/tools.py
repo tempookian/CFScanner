@@ -1,8 +1,7 @@
 import logging
 import socket
 import statistics
-from ipaddress import IPv4Address, IPv6Address, ip_address
-from typing import Union
+from ipaddress import ip_address
 
 logger = logging.getLogger(__name__)
 
