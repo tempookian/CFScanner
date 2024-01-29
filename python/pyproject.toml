@@ -34,5 +34,5 @@ cfscanner = "cfscanner:main"
 
 [tool.setuptools_scm]
 version_file = "src/cfscanner/_version.py"
-tag_regex = 'python-v(?P<version>.+)'
+tag_regex = 'python-(?P<version>v.+)'
 root = ".."
