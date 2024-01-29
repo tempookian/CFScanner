@@ -1,5 +1,4 @@
-![python][python]
-![version][version]
+![PyPI - Version](https://img.shields.io/pypi/v/cfscanner)
 
 # CFScanner - Python
 
@@ -260,5 +259,4 @@ Contributors names and contact info
 - 1.4.3
   - Changed fronting domain
 
-[python]: https://img.shields.io/badge/-Python-3776AB?logo=python&logoColor=white
-[version]: https://img.shields.io/badge/Version-1.4.3-blue
+
