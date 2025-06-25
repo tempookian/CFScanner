@@ -768,7 +768,7 @@ then
   parsedArguments=$(getopt v:m:t:p:n:c:s:r:d:u:f:q:h "$@")
 elif [[ "$osVersion" == "Linux" ]]
 then
-  parsedArguments=$(getopt -a -n cfScanner -o v:m:t:p:n:c:s:r:d:u:f:q:h --long vpn-mode:,mode:,test-type:,thread:,tryCount:,config:,speed:,random:,down-threshold:,up-threshold:,file:,quick:,help -- "$@")
+  parsedArguments=$(getopt -a -n cfScanner -o x:v:m:t:p:n:c:s:r:d:u:f:q:h --long core:,vpn-mode:,mode:,test-type:,thread:,tryCount:,config:,speed:,random:,down-threshold:,up-threshold:,file:,quick:,help -- "$@")
 fi
 
 eval set -- "$parsedArguments"
