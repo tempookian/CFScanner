@@ -78,7 +78,7 @@ ____ ____ ____ ____ ____ _  _ _  _ ____ ____
         )
 
     # check if blocked
-    if not args.no_vpn:
+    if (not args.no_vpn) and not (args.no_fronting):
         if args.fronting_domain:
             with console.status(
                 "[green]Checking if fronting domain is blocked[/green]"
